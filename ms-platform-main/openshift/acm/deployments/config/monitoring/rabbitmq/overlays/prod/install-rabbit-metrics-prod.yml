@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: rmq-monitor
+    template: monitoring-metrics-publisher-template_v1
+  name: rmq-monitor
+spec:
+  endpoints:
+  - interval: 30s
+    port: prometheus
+    scheme: http
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rmq

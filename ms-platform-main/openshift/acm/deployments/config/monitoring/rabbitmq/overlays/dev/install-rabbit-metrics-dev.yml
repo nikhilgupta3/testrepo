@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: rmq-dev-monitor
+  name: rmq-dev-monitor
+  namespace: ms-dev-platform-integration-services
+spec:
+  endpoints:
+  - interval: 30s
+    port: prometheus
+    scheme: http
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dev-rmq

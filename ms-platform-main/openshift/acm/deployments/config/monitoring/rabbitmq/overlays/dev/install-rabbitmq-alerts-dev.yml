@@ -1,0 +1,87 @@
+apiVersion: v1
+items:
+- apiVersion: monitoring.coreos.com/v1
+  kind: PrometheusRule
+  metadata:
+    labels:
+      environment: dev
+      priority: med
+      role: alert
+      template: alerts-rabbitmq-template_v1
+    name: alerts-rabbitmq
+    namespace: ms-dev-platform-integration-services
+  spec:
+    groups:
+    - name: rabbmitmq-alerts
+      rules:
+      - alert: rabbitmq-memory-alert
+        annotations:
+          description: |
+            One or more RabbitMQ nodes are trigging memory watermark alarms.
+          summary: |
+            Producers will be throttled to relieve congestion.
+            Check the details of the pods: oc describe pods -n {{ $labels.namespace }}
+        expr: sum(rabbitmq_alarms_memory_used_watermark{namespace="ms-dev-platform-integration-services"}
+          ) by (value) >0
+        for: 5m
+        labels:
+          rulesgroup: rabbmitmq-alerts
+          severity: warning
+      - alert: rabbitmq-disk-alert
+        annotations:
+          description: |
+            RabbitMQ node is reaching disk capacity.
+          summary: |
+            Check the allocated disk space of RabbitMQ service.
+        expr: sum(rabbitmq_alarms_free_disk_space_watermark{namespace="ms-dev-platform-integration-services"}
+          ) by (value) >0
+        for: 5m
+        labels:
+          rulesgroup: rabbmitmq-alerts
+          severity: warning
+      - alert: rabbitmq-node-down
+        annotations:
+          description: |
+            Only `{{ $value }}` replicas are ready in StatefulSet `{{ $labels.statefulset }}`
+            of RabbitMQ cluster `{{ $labels.label_app_kubernetes_io_name }}` in namespace `{{ $labels.namespace }}`.
+          summary: |
+            No majority of nodes have been ready for the last 5 minutes.
+            Check the details of the pods:
+            `oc -n {{ $labels.namespace }} describe pods -l app.kubernetes.io/component=rabbitmq,app.kubernetes.io/name={{ $labels.label_app_kubernetes_io_name }}`
+        expr: |
+          kube_statefulset_status_replicas_ready * on (namespace, statefulset) group_left(label_app_kubernetes_io_name) kube_statefulset_labels{statefulset="rmq-server"}
+          <=
+          kube_statefulset_replicas              * on (namespace, statefulset) group_left(label_app_kubernetes_io_name) kube_statefulset_labels{statefulset="rmq-server"}
+          / 2
+          unless
+          kube_statefulset_replicas              * on (namespace, statefulset) group_left(label_app_kubernetes_io_name) kube_statefulset_labels{statefulset="rmq-server"}
+          == 0
+        for: 5m
+        labels:
+          rulesgroup: rabbmitmq-alerts
+          severity: critical
+      - alert: rabbmitmq-memory-exceed
+        annotations:
+          description: 'Rabbit node memory limit exceeded 75%: {{ $value }}'
+          summary: Rabbit node memory limit exceeded
+        expr: max((sum(container_memory_working_set_bytes{cluster="", namespace="ms-dev-platform-integration-services",container!="",
+          image!="", pod=~"dev-rmq-server-.*"}) by (pod) / sum(kube_pod_container_resource_limits{cluster="",
+          namespace="ms-dev-platform-integration-services", resource="memory", pod=~"dev-rmq-server-.*"})
+          by (pod))) * 100 > 75
+        for: 1m
+        labels:
+          severity: warning
+      - alert: rabbmitmq-memory-exceed
+        annotations:
+          description: 'Rabbit node memory limit exceeded 75%: {{ $value }}'
+          summary: Rabbit node memory limit exceeded
+        expr: max((sum(container_memory_working_set_bytes{cluster="", namespace="ms-dev-platform-integration-services",container!="",
+          image!="", pod=~"dev-rmq-server-.*"}) by (pod) / sum(kube_pod_container_resource_limits{cluster="",
+          namespace="ms-dev-platform-integration-services", resource="memory", pod=~"dev-rmq-server-.*"})
+          by (pod))) * 100 > 75
+        for: 1m
+        labels:
+          rulesgroup: rabbmitmq-alerts
+          severity: critical
+kind: List
+metadata: {}
