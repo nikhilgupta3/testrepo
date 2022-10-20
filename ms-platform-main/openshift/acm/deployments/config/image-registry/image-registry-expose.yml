@@ -3,4 +3,5 @@ kind: Config
 metadata:
   name: cluster
 spec:
-  defaultRoute: true
+  properties:
+    defaultRoute: true
